@@ -259,16 +259,7 @@ public class TargetSelect_Shape : GenericAbility_TargetSelectBase
 	{
 		if (m_centerSquareDelegate != null)
 		{
-			while (true)
-			{
-				switch (7)
-				{
-				case 0:
-					break;
-				default:
-					return m_centerSquareDelegate(target, caster);
-				}
-			}
+			return m_centerSquareDelegate(target, caster);
 		}
 		return Board.Get().GetSquare(target.GridPos);
 	}
@@ -277,16 +268,7 @@ public class TargetSelect_Shape : GenericAbility_TargetSelectBase
 	{
 		if (m_isMovingShapeDelegate != null)
 		{
-			while (true)
-			{
-				switch (5)
-				{
-				case 0:
-					break;
-				default:
-					return m_isMovingShapeDelegate(caster);
-				}
-			}
+			return m_isMovingShapeDelegate(caster);
 		}
 		return false;
 	}
@@ -295,16 +277,7 @@ public class TargetSelect_Shape : GenericAbility_TargetSelectBase
 	{
 		if (m_moveStartSquareDelegate != null)
 		{
-			while (true)
-			{
-				switch (6)
-				{
-				case 0:
-					break;
-				default:
-					return m_moveStartSquareDelegate(target, caster);
-				}
-			}
+			return m_moveStartSquareDelegate(target, caster);
 		}
 		return caster.GetCurrentBoardSquare();
 	}
@@ -313,17 +286,94 @@ public class TargetSelect_Shape : GenericAbility_TargetSelectBase
 	{
 		if (m_moveStartFreePosDelegate != null)
 		{
-			while (true)
-			{
-				switch (1)
-				{
-				case 0:
-					break;
-				default:
-					return m_moveStartFreePosDelegate(target, caster);
-				}
-			}
+			return m_moveStartFreePosDelegate(target, caster);
 		}
 		return caster.GetFreePos();
 	}
+
+	//rogues
+    public override void CalcHitTargets(List<AbilityTarget> targets, ActorData caster, List<NonActorTargetInfo> nonActorTargetInfo)
+    {
+        ResetContextData();
+        base.CalcHitTargets(targets, caster, nonActorTargetInfo);
+        List<List<ActorData>> hitActors = GetHitActors(targets, caster, nonActorTargetInfo);
+        BoardSquare shapeCenterSquare = GetShapeCenterSquare(targets[0], caster);
+        Vector3 centerOfShape = AreaEffectUtils.GetCenterOfShape(GetShape(), targets[0].FreePos, shapeCenterSquare);
+        ContextVars nonActorSpecificContext = GetNonActorSpecificContext();
+        // nonActorSpecificContext.SetValue(this.m_centerPosContextKey.GetKey(), centerOfShape);
+        List<BarrierPoseInfo> barrierPosesForRegularPolygon = BarrierPoseInfo.GetBarrierPosesForRegularPolygon(centerOfShape, AreaEffectUtils.GetNumberOfSidesForShape(GetShape()), AreaEffectUtils.GetWidthForShape(GetShape()) * 0.5f * Board.SquareSizeStatic, 0f);
+        //if (!barrierPosesForRegularPolygon.IsNullOrEmpty<BarrierPoseInfo>())
+        //{
+        //    nonActorSpecificContext.SetValue(TargetSelect_Shape.s_cvarShapeSideWidth.GetKey(), barrierPosesForRegularPolygon[0].widthInWorld);
+        //    for (int i = 0; i < barrierPosesForRegularPolygon.Count; i++)
+        //    {
+        //        nonActorSpecificContext.SetValue(TargetSelect_Shape.s_cvarShapeSideCenters[i].GetKey(), barrierPosesForRegularPolygon[i].midpoint);
+        //        nonActorSpecificContext.SetValue(TargetSelect_Shape.s_cvarShapeSideFacingDirs[i].GetKey(), barrierPosesForRegularPolygon[i].facingDirection);
+        //    }
+        //}
+        for (int j = 0; j < hitActors.Count; j++)
+        {
+            foreach (ActorData actor in hitActors[j])
+            {
+                AddHitActor(actor, centerOfShape, false);
+                base.SetActorContext(actor, TargetSelect_Shape.s_cvarShapeLayer.GetKey(), j);
+            }
+        }
+        bool isMovingShape = IsMovingShape(caster);
+        BoardSquare moveStartSquare = GetMoveStartSquare(targets[0], caster);
+        if (isMovingShape && moveStartSquare != null)
+        {
+            Vector3 vector = moveStartSquare.ToVector3();
+            Vector3 endPos = centerOfShape;
+            List<Team> relevantTeams = TargeterUtils.GetRelevantTeams(caster, base.IncludeAllies(), base.IncludeEnemies());
+            foreach (ActorData actor2 in AreaEffectUtils.GetActorsInShape(m_shape, vector, moveStartSquare, base.IgnoreLos(), caster, relevantTeams, nonActorTargetInfo))
+            {
+                if (!base.HasContextForActor(caster))
+                {
+                    AddHitActor(actor2, vector, false);
+                }
+            }
+            foreach (ActorData actor3 in AreaEffectUtils.GetActorsInRadiusOfLine(vector, endPos, 0f, 0f, 0.5f * m_moveLineWidth, base.IgnoreLos(), caster, relevantTeams, nonActorTargetInfo))
+            {
+                if (!base.HasContextForActor(caster))
+                {
+                    AddHitActor(actor3, vector, false);
+                }
+            }
+        }
+        if (base.IncludeCaster() && !GetActorHitContextMap().ContainsKey(caster))
+        {
+            AddHitActor(caster, caster.GetFreePos(), false);
+            base.SetActorContext(caster, TargetSelect_Shape.s_cvarShapeLayer.GetKey(), 0);
+        }
+    }
+
+	//rogues
+    public List<List<ActorData>> GetHitActors(List<AbilityTarget> targets, ActorData caster, List<NonActorTargetInfo> nonActorTargetInfo)
+    {
+        Vector3 freePos = targets[0].FreePos;
+        BoardSquare shapeCenterSquare = GetShapeCenterSquare(targets[0], caster);
+        List<List<ActorData>> list;
+        AreaEffectUtils.GetActorsInShapeLayers(m_shapesList, freePos, shapeCenterSquare, base.IgnoreLos(), caster, TargeterUtils.GetRelevantTeams(caster, base.IncludeAllies(), base.IncludeEnemies()), out list, nonActorTargetInfo);
+        if (m_requireTargetingOnActor && shapeCenterSquare != null && shapeCenterSquare.OccupantActor != null && list.Count > 0)
+        {
+            ActorData occupantActor = shapeCenterSquare.OccupantActor;
+            if (!list[0].Contains(occupantActor))
+            {
+                list[0].Add(occupantActor);
+            }
+        }
+        return list;
+    }
+
+	//rogues
+    public override List<ServerClientUtils.SequenceStartData> CreateSequenceStartData(List<AbilityTarget> targets, ActorData caster, ServerAbilityUtils.AbilityRunData additionalData, Sequence.IExtraSequenceParams[] extraSequenceParams = null)
+    {
+        List<ServerClientUtils.SequenceStartData> list = new List<ServerClientUtils.SequenceStartData>();
+        BoardSquare shapeCenterSquare = GetShapeCenterSquare(targets[0], caster);
+        Vector3 centerOfShape = AreaEffectUtils.GetCenterOfShape(GetShape(), targets[0].FreePos, shapeCenterSquare);
+        ServerClientUtils.SequenceStartData item = new ServerClientUtils.SequenceStartData(m_castSequencePrefab, centerOfShape, additionalData.m_abilityResults.HitActorsArray(), caster, additionalData.m_sequenceSource, extraSequenceParams);
+        list.Add(item);
+        return list;
+    }
 }
