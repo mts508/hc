@@ -22,11 +22,11 @@ public class ClericAreaBuff : Ability
 	public int m_selfShieldingOverride = -1;
 	public StandardEffectInfo m_effectOnEnemies;
 	[Separator("Vision on Target Square")]
-	public bool m_addVisionOnTargetSquare;
-	public float m_visionRadius = 1.5f;
-	public int m_visionDuration = 1;
-	public VisionProviderInfo.BrushRevealType m_brushRevealType = VisionProviderInfo.BrushRevealType.Always;
-	public bool m_visionAreaIgnoreLos = true;
+	public bool m_addVisionOnTargetSquare; // TODO CLERIC unused (not used in the ability or any of the mods)
+	public float m_visionRadius = 1.5f; // TODO CLERIC unused (not used in the ability or any of the mods)
+	public int m_visionDuration = 1; // TODO CLERIC unused (not used in the ability or any of the mods)
+	public VisionProviderInfo.BrushRevealType m_brushRevealType = VisionProviderInfo.BrushRevealType.Always; // TODO CLERIC unused (not used in the ability or any of the mods)
+	public bool m_visionAreaIgnoreLos = true; // TODO CLERIC unused (not used in the ability or any of the mods)
 	[Separator("Sequences")]
 	public GameObject m_castSequencePrefab;
 	public GameObject m_persistentSequencePrefab;
@@ -189,6 +189,7 @@ public class ClericAreaBuff : Ability
 		return m_cachedEffectOnEnemies ?? m_effectOnEnemies;
 	}
 
+	// TODO CLERIC unused (not used in the ability or any of the mods), always false
 	public bool AddVisionOnTargetSquare()
 	{
 		return m_abilityMod != null
@@ -196,6 +197,7 @@ public class ClericAreaBuff : Ability
 			: m_addVisionOnTargetSquare;
 	}
 
+	// TODO CLERIC unused (not used in the ability or any of the mods), always 4
 	public float GetVisionRadius()
 	{
 		return m_abilityMod != null
@@ -203,6 +205,7 @@ public class ClericAreaBuff : Ability
 			: m_visionRadius;
 	}
 
+	// TODO CLERIC unused (not used in the ability or any of the mods), always 1
 	public int GetVisionDuration()
 	{
 		return m_abilityMod != null
@@ -210,6 +213,7 @@ public class ClericAreaBuff : Ability
 			: m_visionDuration;
 	}
 
+	// TODO CLERIC unused (not used in the ability or any of the mods), always true
 	public bool VisionAreaIgnoreLos()
 	{
 		return m_abilityMod != null
@@ -403,8 +407,100 @@ public class ClericAreaBuff : Ability
 		int cost = 0;
 		if (m_syncComp != null)
 		{
-			cost = m_syncComp.m_turnsAreaBuffActive * m_extraTpCostPerTurnActive;
+			// custom
+			cost = m_syncComp.m_turnsAreaBuffActive * GetExtraTpCostPerTurnActive();
+			// reactor
+			// cost = m_syncComp.m_turnsAreaBuffActive * m_extraTpCostPerTurnActive;
 		}
 		return base.GetModdedCost() + cost;
 	}
+	
+#if SERVER
+	// added in rogues
+	// It seems too early -- at the very least, if turnsAreaBuffActive replicates before cast animation, it breaks it
+	// Also it looks like effect tech point cost is supposed to be calculated before this increment
+	// So I moved it into ClericAreaBuffEffect::OnTurnEnd
+	// public override void Run(List<AbilityTarget> targets, ActorData caster, ServerAbilityUtils.AbilityRunData additionalData)
+	// {
+	// 	m_syncComp.Networkm_turnsAreaBuffActive++;  // m_turnsAreaBuffActive in rogues
+	// 	Log.Info($"ClericAreaBuff run: {m_syncComp.Networkm_turnsAreaBuffActive}");
+	// }
+
+	// custom
+	public override bool CustomCanCastValidation(ActorData caster)
+	{
+		return GetPerTurnTechPointCost() <= caster.TechPoints;
+	}
+
+	// custom
+	public override ServerClientUtils.SequenceStartData GetAbilityRunSequenceStartData(
+		List<AbilityTarget> targets,
+		ActorData caster,
+		ServerAbilityUtils.AbilityRunData additionalData)
+	{
+		SequenceSource sequenceSource = additionalData.m_sequenceSource;
+		List<Effect> activeEffects = ServerEffectManager.Get()
+			.GetEffectsOnTargetByCaster(caster, caster, typeof(ClericAreaBuffEffect));
+		if (activeEffects.Count > 0)
+		{
+			sequenceSource = activeEffects[0].SequenceSource;
+		}
+
+		return new ServerClientUtils.SequenceStartData(
+			m_syncComp.m_turnsAreaBuffActive <= 0 ? m_castSequencePrefab : null,
+			Board.Get().GetSquare(caster.GetGridPos()).ToVector3(),
+			additionalData.m_abilityResults.HitActorsArray(),  // aka null
+			caster,
+			sequenceSource);
+	}
+	
+	// custom
+	public override void GatherAbilityResults(
+		List<AbilityTarget> targets,
+		ActorData caster,
+		ref AbilityResults abilityResults)
+	{
+		if (m_syncComp.m_turnsAreaBuffActive > 0)
+		{
+			Log.Info($"ClericAreaBuff already active, skipping ability");
+			return;
+		}
+		
+		BoardSquare casterSquare = Board.Get().GetSquare(caster.GetGridPos());
+		PositionHitResults positionHitResults = new PositionHitResults(new PositionHitParameters(casterSquare.ToVector3()));
+		List<ActorData> hitActors = AreaEffectUtils.GetActorsInShape(
+			GetShape(),
+			casterSquare.ToVector3(),
+			casterSquare,
+			PenetrateLoS(),
+			caster,
+			GetAffectedTeams(caster),
+			null);
+		positionHitResults.AddEffect(new ClericAreaBuffEffect(
+			AsEffectSource(),
+			casterSquare,
+			caster,
+			caster,
+			this,
+			m_syncComp,
+			hitActors,
+			GetEffectDuration()));
+		abilityResults.StorePositionHit(positionHitResults);
+	}
+
+	// custom
+	public List<Team> GetAffectedTeams(ActorData caster)
+	{
+		List<Team> list = new List<Team>();
+		if (IncludeAllies())
+		{
+			list.Add(caster.GetTeam());
+		}
+		if (IncludeEnemies())
+		{
+			list.AddRange(caster.GetOtherTeams());
+		}
+		return list;
+	}
+#endif
 }
