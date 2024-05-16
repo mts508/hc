@@ -1,7 +1,7 @@
 using AbilityContextNamespace;
 using System.Collections.Generic;
 using UnityEngine;
-
+// Ability 1
 public class FireborgDualCones : GenericAbility_Container
 {
 	[Separator("Extra Damage for overlap state", true)]

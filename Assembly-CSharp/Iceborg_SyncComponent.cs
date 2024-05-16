@@ -1,8 +1,11 @@
+using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using AbilityContextNamespace;
+using Assembly_CSharp;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityStandardAssets.Water;
 
 public class Iceborg_SyncComponent : NetworkBehaviour
 {
@@ -11,23 +14,29 @@ public class Iceborg_SyncComponent : NetworkBehaviour
 
 	[Separator("Delayed Aoe (Nova) Effect")]
 	public float m_delayedAoeRadius = 1.5f;
+
 	[Header("-- (for combat phase abilities, will add 1 to duration and only trigger next turn)")]
 	public int m_delayedAoeDuration = 1;
 	public bool m_delayedAoeTriggerOnReact = true;
 	public bool m_delayedAoeCanReactToIndirectHits = true;
+
 	[Separator("(Normal) Nova Trigger On Hit Data. Context Var [NovaCenter] is 1 if enemy has core, 0 otherwise", "yellow")]
 	public OnHitAuthoredData m_delayedAoeOnHitData;
+
 	[Separator("Shield per delayed aoe hit")]
 	public int m_delayedAoeShieldPerEnemyHit;
 	public int m_delayedAoeShieldPerExplosion;
 	public int m_delayedAoeShieldDuration = 1;
+
 	[Separator("Energy Gain on Delayed Aoe Trigger")]
 	public int m_delayedAoeEnergyPerEnemyHit;
 	public int m_delayedAoeEnergyPerExplosion;
+
 	[Separator("Sequences for delayed Aoe Effect")]
 	public GameObject m_delayedAoePersistentSeqPrefab;
 	public GameObject m_delayedAoeTriggerSeqPrefab;
 	public GameObject m_empoweredDelayedAoeTriggerSeqPrefab;
+
 	[Header("-- for when shielding is applied to caster on beginning of turn")]
 	public GameObject m_delayedAoeShieldApplySeqPrefab;
 
@@ -35,24 +44,22 @@ public class Iceborg_SyncComponent : NetworkBehaviour
 
 	private int m_cachedNovaTriggerDamage;
 	private SyncListUInt m_actorsWithNovaCore = new SyncListUInt();
-	[SyncVar]
-	internal short m_damageFieldLastCastTurn = -1;
-	[SyncVar]
-	internal bool m_damageAreaCanMoveThisTurn;
-	[SyncVar]
-	internal short m_damageAreaCenterX = -1;
-	[SyncVar]
-	internal short m_damageAreaCenterY = -1;
-	[SyncVar]
-	internal Vector3 m_damageAreaFreePos;
-	[SyncVar]
-	internal short m_numNovaEffectsOnTurnStart;
-	[SyncVar]
-	internal bool m_selfShieldLowHealthOnTurnStart;
+
+	[SyncVar] internal short m_damageFieldLastCastTurn = -1;
+	[SyncVar] internal bool m_damageAreaCanMoveThisTurn;
+	[SyncVar] internal short m_damageAreaCenterX = -1;
+	[SyncVar] internal short m_damageAreaCenterY = -1;
+	[SyncVar] internal Vector3 m_damageAreaFreePos;
+
+	[SyncVar] internal short m_numNovaEffectsOnTurnStart;
+	[SyncVar] internal bool m_selfShieldLowHealthOnTurnStart;
 
 	private static int kListm_actorsWithNovaCore = 1707706451;
 
-	public short Networkm_damageFieldLastCastTurn
+    // custom
+    private StandardActorEffectData m_cachedNovaCenterEffectData;
+
+    public short Networkm_damageFieldLastCastTurn
 	{
 		get => m_damageFieldLastCastTurn;
 		[param: In]
@@ -143,7 +150,6 @@ public class Iceborg_SyncComponent : NetworkBehaviour
 		if (actorHitContext.ContainsKey(targetActor) && caster.GetTeam() != targetActor.GetTeam())
 		{
 			actorHitContext[targetActor].m_contextVars.SetValue(s_cvarHasNova.GetKey(), HasNovaCore(targetActor) ? 1 : 0);
-			
 		}
 	}
 
@@ -327,5 +333,47 @@ public class Iceborg_SyncComponent : NetworkBehaviour
 		{
 			m_selfShieldLowHealthOnTurnStart = reader.ReadBoolean();
 		}
+	}
+
+	// custom
+	public void AddNovaCoreActorIndex(int actorIndex)
+	{
+		Log.Info("Adding to NovaCore List -> " + GameFlowData.Get().FindActorByActorIndex(actorIndex));
+		if(!m_actorsWithNovaCore.Contains((uint)actorIndex))
+		{
+			Log.Info("  Added");
+            m_actorsWithNovaCore.Add((uint)actorIndex);
+        }
+    }
+
+	// custom
+	public void RemoveNovaCoreActorIndex(int actorIndex)
+	{
+		Log.Info("Removing actor from NovaCore list -> " +  (GameFlowData.Get().FindActorByActorIndex(actorIndex)));
+		m_actorsWithNovaCore.Remove((uint)actorIndex);
+	}
+
+	// custom
+	public void ClearNovaCoreActors() 
+	{
+		m_actorsWithNovaCore.Clear();
+	}
+
+	// custom
+    public StandardActorEffectData GetNovaCoreEffectData()
+    {
+        if (m_cachedNovaCenterEffectData == null)
+        {
+			m_cachedNovaCenterEffectData = new StandardActorEffectData();
+            m_cachedNovaCenterEffectData.SetValues("NovaCoreVisualEffect", 2, 0, 0, 0, ServerCombatManager.HealingType.Effect, 0, 0, new AbilityStatMod[0], new StatusType[0], StandardActorEffectData.StatusDelayMode.DefaultBehavior);
+            m_cachedNovaCenterEffectData.m_sequencePrefabs = new UnityEngine.GameObject[] { m_delayedAoePersistentSeqPrefab };
+        }
+        return m_cachedNovaCenterEffectData;
+    }
+
+    // custom
+    public IceborgNovaCoreEffect CreateNovaCoreEffect(EffectSource effectSource, BoardSquare targetSquare, ActorData target, ActorData caster, int extraEnergy = 0) 
+	{
+        return new IceborgNovaCoreEffect(effectSource, targetSquare, target, caster, GetNovaCoreEffectData(), GetNovaCoreTriggerDamage(), m_delayedAoeTriggerSeqPrefab, extraEnergy);
 	}
 }

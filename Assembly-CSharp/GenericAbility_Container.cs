@@ -4,6 +4,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using AbilityContextNamespace;
+using Newtonsoft.Json;
 //using EffectSystem;
 using UnityEngine;
 
@@ -487,17 +488,33 @@ public class GenericAbility_Container : Ability
 
 	public static void CalcIntFieldValues(ActorData targetActor, ActorData caster, ActorHitContext actorContext, ContextVars abilityContext, List<OnHitIntField> intFields, NumericHitResultScratch result)
 	{
+		Log.Info($"GenericAbility_Container.CalcIntFieldValues: target={targetActor.DisplayName} caster={caster.DisplayName} OnHitIntField={intFields.Count}");
 		result.Reset();
 		foreach (OnHitIntField current in intFields)
 		{
-			if (TargetFilterHelper.ActorMeetsConditions(current.m_conditions, targetActor, caster, actorContext, abilityContext))
+			Log.Info($"IntField: baseValue={current.m_baseValue} conditions={current.m_conditions} hitType={current.m_hitType}");
+			try
 			{
+				if(current.m_baseAddModifiers != null) {
+					Log.Info("add mods: " + current.m_baseAddModifiers.Count);
+                }
+                Log.Info(current.ToJson());
+			}
+			catch (JsonSerializationException e) {
+				Log.Error(e.ToString());
+			}
+            if (TargetFilterHelper.ActorMeetsConditions(current.m_conditions, targetActor, caster, actorContext, abilityContext))
+			{
+				Log.Info("Actor meets conditions");
 				// reactor
 				int num = current.CalcValue(actorContext, abilityContext);
+				
+
 				if (current.m_hitType == OnHitIntField.HitType.Damage && result.m_damage == 0)
 				{
 					result.m_damage = num;
 				}
+				
 				else if (current.m_hitType == OnHitIntField.HitType.Healing && result.m_healing == 0)
 				{
 					result.m_healing = num;
@@ -516,23 +533,29 @@ public class GenericAbility_Container : Ability
 						result.m_energyLoss = -1 * num;
 					}
 				}
-				// rogues
-				//current.CalcValues(actorContext, abilityContext, out float num, out float num2);
-				//if (current.m_hitType == OnHitIntField.HitType.Damage)
-				//{
-				//	result.m_damageMin += num;
-				//	result.m_damageMax += num2;
-				//}
-				//else if (current.m_hitType == OnHitIntField.HitType.Healing)
-				//{
-				//	result.m_healingMin += num;
-				//	result.m_healingMax += num2;
-				//}
-				//else if (current.m_hitType == OnHitIntField.HitType.EnergyGain)
-				//{
-				//	result.m_energyGainMin += num;
-				//	result.m_energyGainMax += num2;
-				//}
+
+                Log.Info($"Num: {num} resultDMG={result.m_damage} resultHEAL={result.m_healing} resulENE={result.m_energyGain}");
+
+                // rogues
+                //current.CalcValues(actorContext, abilityContext, out float num, out float num2);
+                //if (current.m_hitType == OnHitIntField.HitType.Damage)
+                //{
+                //	result.m_damageMin += num;
+                //	result.m_damageMax += num2;
+                //}
+                //else if (current.m_hitType == OnHitIntField.HitType.Healing)
+                //{
+                //	result.m_healingMin += num;
+                //	result.m_healingMax += num2;
+                //}
+                //else if (current.m_hitType == OnHitIntField.HitType.EnergyGain)
+                //{
+                //	result.m_energyGainMin += num;
+                //	result.m_energyGainMax += num2;
+                //}
+            } else
+			{
+				Log.Info("Actor not meet conditions!!!");
 			}
 		}
 	}
@@ -556,8 +579,8 @@ public class GenericAbility_Container : Ability
 #if SERVER
 	protected virtual void PreProcessForCalcAbilityHits(List<AbilityTarget> targets, ActorData caster, Dictionary<ActorData, ActorHitContext> actorHitContextMap, ContextVars abilityContext)
 	{
-		int num = 0;
-		int num2 = 0;
+		int numEnemiesHits = 0;
+		int numAlliesHit = 0;
 		foreach (KeyValuePair<ActorData, ActorHitContext> keyValuePair in actorHitContextMap)
 		{
 			float hitPointPercent = keyValuePair.Key.GetHitPointPercent();
@@ -566,20 +589,20 @@ public class GenericAbility_Container : Ability
 			keyValuePair.Value.m_contextVars.SetValue(ContextKeys.s_TargetHealthPercentage.GetKey(), hitPointPercent);
 			if (keyValuePair.Key.GetTeam() == caster.GetTeam())
 			{
-				num2++;
+				numAlliesHit++;
 			}
 			else
 			{
-				num++;
+				numEnemiesHits++;
 			}
 		}
-		abilityContext.SetValue(ContextKeys.s_NumEnemyHits.GetKey(), num);
-		abilityContext.SetValue(ContextKeys.s_NumAllyHits.GetKey(), num2);
+		abilityContext.SetValue(ContextKeys.s_NumEnemyHits.GetKey(), numEnemiesHits);
+		abilityContext.SetValue(ContextKeys.s_NumAllyHits.GetKey(), numAlliesHit);
 	}
 
 	// rogues?
-	//protected virtual void ProcessGatheredHits(List<AbilityTarget> targets, ActorData caster, AbilityResults abilityResults, List<ActorHitResults> actorHitResults, List<PositionHitResults> positionHitResults, List<NonActorTargetInfo> nonActorTargetInfo)
-	//{
+	protected virtual void ProcessGatheredHits(List<AbilityTarget> targets, ActorData caster, AbilityResults abilityResults, List<ActorHitResults> actorHitResults, List<PositionHitResults> positionHitResults, List<NonActorTargetInfo> nonActorTargetInfo)
+	{
 	//    if (actorHitResults.Any<ActorHitResults>())
 	//    {
 	//        foreach (OnHitEffectTemplateField onHitEffectTemplateField in m_onHitData.m_effectTemplateFields)
@@ -610,7 +633,7 @@ public class GenericAbility_Container : Ability
 	//            actorHitResults2.AddEffect(effect);
 	//        }
 	//    }
-	//}
+	}
 
 	// added in rogues
 	public override List<ServerClientUtils.SequenceStartData> GetAbilityRunSequenceStartDataList(List<AbilityTarget> targets, ActorData caster, ServerAbilityUtils.AbilityRunData additionalData)
@@ -644,23 +667,25 @@ public class GenericAbility_Container : Ability
 		{
 			Log.Error(base.GetType() + " has no target select handler or on-hit interpreter");
 			return;
+		} else {
+			Log.Info(targetSelectComp.ToString());
 		}
 		targetSelectComp.ResetContextData();
 		List<NonActorTargetInfo> nonActorTargetInfo = new List<NonActorTargetInfo>();
 		targetSelectComp.CalcHitTargets(targets, caster, nonActorTargetInfo);
 		PreProcessForCalcAbilityHits(targets, caster, targetSelectComp.GetActorHitContextMap(), targetSelectComp.GetNonActorSpecificContext());
-		List<ActorHitResults> list;
-		List<PositionHitResults> list2;
-		GenericAbility_Container.CalcAbilityHits(targetSelectComp.GetActorHitContextMap(), targetSelectComp.GetNonActorSpecificContext(), caster, GetOnHitAuthoredData(), this, abilityResults.SequenceSource, out list, out list2);
+		List<ActorHitResults> actorHitResults;
+		List<PositionHitResults> positionHitResults;
+		CalcAbilityHits(targetSelectComp.GetActorHitContextMap(), targetSelectComp.GetNonActorSpecificContext(), caster, GetOnHitAuthoredData(), this, abilityResults.SequenceSource, out actorHitResults, out positionHitResults);
 
 		// rogues?
-		//ProcessGatheredHits(targets, caster, abilityResults, list, list2, nonActorTargetInfo);
+		ProcessGatheredHits(targets, caster, abilityResults, actorHitResults, positionHitResults, nonActorTargetInfo);
 
-		foreach (ActorHitResults hitResults in list)
+		foreach (ActorHitResults hitResults in actorHitResults)
 		{
 			abilityResults.StoreActorHit(hitResults);
 		}
-		foreach (PositionHitResults hitResults2 in list2)
+		foreach (PositionHitResults hitResults2 in positionHitResults)
 		{
 			abilityResults.StorePositionHit(hitResults2);
 		}
@@ -737,6 +762,7 @@ public class GenericAbility_Container : Ability
 	// added in rogues
 	public static void CalcAbilityHits(Dictionary<ActorData, ActorHitContext> actorHitContextMap, ContextVars abilityContext, ActorData caster, OnHitAuthoredData onHitAuthoredData, Ability ability, SequenceSource seqSource, out List<ActorHitResults> actorHits, out List<PositionHitResults> posHits)
 	{
+		Log.Info("GenericAbility_Container.CalcAbilityHits()");
 		actorHits = new List<ActorHitResults>();
 		posHits = new List<PositionHitResults>();
 		NumericHitResultScratch numericHitResultScratch = new NumericHitResultScratch();
@@ -782,44 +808,49 @@ public class GenericAbility_Container : Ability
 			}
 			posHits.Add(positionHitResults);
 		}
-		//List<StandardGroundEffect> list2 = new List<StandardGroundEffect>(onHitAuthoredData.m_groundEffectFields.Count);
-		//if (onHitAuthoredData.m_groundEffectFields != null && onHitAuthoredData.m_groundEffectFields.Count > 0)
-		//{
-		//	for (int j = 0; j < onHitAuthoredData.m_groundEffectFields.Count; j++)
-		//	{
-		//		OnHitGroundEffectField onHitGroundEffectField = onHitAuthoredData.m_groundEffectFields[j];
-		//		if (!string.IsNullOrEmpty(onHitGroundEffectField.m_centerPosContextName))
-		//		{
-		//			if (TargetFilterHelper.PassContextCompareFilters(onHitGroundEffectField.m_compareConditions, null, abilityContext))
-		//			{
-		//				int centerPosContextKey2 = onHitGroundEffectField.GetCenterPosContextKey(false);
-		//				if (abilityContext.HasVarVec3(centerPosContextKey2))
-		//				{
-		//					Vector3 valueVec3 = abilityContext.GetValueVec3(centerPosContextKey2);
-		//					PositionHitResults positionHitResults2 = new PositionHitResults(new PositionHitParameters(valueVec3));
-		//					StandardGroundEffect standardGroundEffect = new StandardGroundEffect(ability.AsEffectSource(), Board.Get().GetSquareFromVec3(valueVec3), valueVec3, null, caster, onHitGroundEffectField.m_groundEffect);
-		//					positionHitResults2.AddEffect(standardGroundEffect);
-		//					list2.Add(standardGroundEffect);
-		//					posHits.Add(positionHitResults2);
-		//				}
-		//				else
-		//				{
-		//					Debug.LogError("no centerPos key " + onHitGroundEffectField.m_centerPosContextName);
-		//				}
-		//			}
-		//		}
-		//		else
-		//		{
-		//			Debug.LogError("no centerPosContextName");
-		//		}
-		//	}
-		//	foreach (StandardGroundEffect standardGroundEffect2 in list2)
-		//	{
-		//		standardGroundEffect2.SetLinkedGroundEffects(list2);
-		//	}
-		//}
+		/*
+		List<StandardGroundEffect> groundEffects = new List<StandardGroundEffect>(onHitAuthoredData.m_groundEffectFields.Count);
+		if (onHitAuthoredData.m_groundEffectFields != null && onHitAuthoredData.m_groundEffectFields.Count > 0)
+		{
+			Log.Info($"Has {onHitAuthoredData.m_groundEffectFields.Count} ground effects!!!!");
+			for (int j = 0; j < onHitAuthoredData.m_groundEffectFields.Count; j++)
+			{
+				OnHitGroundEffectField onHitGroundEffectField = onHitAuthoredData.m_groundEffectFields[j];
+				if (!string.IsNullOrEmpty(onHitGroundEffectField.m_centerPosContextName))
+				{
+					if (TargetFilterHelper.PassContextCompareFilters(onHitGroundEffectField.m_compareConditions, null, abilityContext))
+					{
+						int centerPosContextKey2 = onHitGroundEffectField.GetCenterPosContextKey(false);
+						if (abilityContext.HasVarVec3(centerPosContextKey2))
+						{
+							Vector3 valueVec3 = abilityContext.GetValueVec3(centerPosContextKey2);
+							PositionHitResults positionHitResults2 = new PositionHitResults(new PositionHitParameters(valueVec3));
+							StandardGroundEffect standardGroundEffect = new StandardGroundEffect(ability.AsEffectSource(), Board.Get().GetSquareFromVec3(valueVec3), valueVec3, null, caster, onHitGroundEffectField.m_groundEffect);
+							positionHitResults2.AddEffect(standardGroundEffect);
+							groundEffects.Add(standardGroundEffect);
+							posHits.Add(positionHitResults2);
+						}
+						else
+						{
+							Debug.LogError("no centerPos key " + onHitGroundEffectField.m_centerPosContextName);
+						}
+					}
+				}
+				else
+				{
+					Debug.LogError("no centerPosContextName");
+				}
+			}
+			foreach (StandardGroundEffect standardGroundEffect2 in groundEffects)
+			{
+				standardGroundEffect2.SetLinkedGroundEffects(groundEffects);
+			}
+		}
+		*/
+
 		foreach (ActorData actorData in actorHitContextMap.Keys)
 		{
+			Log.Info($"  GenericAbility_Container.CalcAbilityHits -> Actor '{actorData.DisplayName}'");
 			ActorHitResults actorHitResults = new ActorHitResults(new ActorHitParameters(actorData, actorHitContextMap[actorData].m_hitOrigin));
 			bool ignoreMinCoverDist = actorHitContextMap[actorData].m_ignoreMinCoverDist;
 			if (ignoreMinCoverDist)
@@ -832,7 +863,7 @@ public class GenericAbility_Container : Ability
 				GenericAbility_Container.CalcIntFieldValues(actorData, caster, actorContext, abilityContext, onHitAuthoredData.m_allyHitIntFields, numericHitResultScratch);
 
 				// rogues?
-				//GenericAbility_Container.SetNumericFieldsOnHitResults(actorHitResults, numericHitResultScratch);
+				GenericAbility_Container.SetNumericFieldsOnHitResults(actorHitResults, numericHitResultScratch);
 				//GenericAbility_Container.SetKnockbackFieldsOnHitResults(actorData, caster, actorContext, abilityContext, actorHitResults, onHitAuthoredData.m_allyHitKnockbackFields);
 				//GenericAbility_Container.SetCooldownReductionFieldsOnHitResults(actorData, caster, actorContext, abilityContext, actorHitResults, onHitAuthoredData.m_allyHitCooldownReductionFields, actorHitContextMap.Count);
 				GenericAbility_Container.SetEffectFieldsOnHitResults(actorData, caster, actorContext, abilityContext, actorHitResults, onHitAuthoredData.m_allyHitEffectFields);
@@ -844,7 +875,7 @@ public class GenericAbility_Container : Ability
 				GenericAbility_Container.CalcIntFieldValues(actorData, caster, actorContext, abilityContext, onHitAuthoredData.m_enemyHitIntFields, numericHitResultScratch);
 
 				// rogues?
-				//GenericAbility_Container.SetNumericFieldsOnHitResults(actorHitResults, numericHitResultScratch);
+				GenericAbility_Container.SetNumericFieldsOnHitResults(actorHitResults, numericHitResultScratch);
 				//GenericAbility_Container.SetKnockbackFieldsOnHitResults(actorData, caster, actorContext, abilityContext, actorHitResults, onHitAuthoredData.m_enemyHitKnockbackFields);
 				//GenericAbility_Container.SetCooldownReductionFieldsOnHitResults(actorData, caster, actorContext, abilityContext, actorHitResults, onHitAuthoredData.m_enemyHitCooldownReductionFields, actorHitContextMap.Count);
 				GenericAbility_Container.SetEffectFieldsOnHitResults(actorData, caster, actorContext, abilityContext, actorHitResults, onHitAuthoredData.m_enemyHitEffectFields);
@@ -861,21 +892,38 @@ public class GenericAbility_Container : Ability
 	}
 
 	// rogues?
-	//public static void SetNumericFieldsOnHitResults(ActorHitResults hitRes, NumericHitResultScratch calcScratch)
-	//{
-	//	if (calcScratch.m_damageMin > 0f)
-	//	{
-	//		hitRes.ModifyDamageCoeff(calcScratch.m_damageMin, calcScratch.m_damageMax);
-	//	}
-	//	if (calcScratch.m_healingMin > 0f)
-	//	{
-	//		hitRes.ModifyHealingCoeff(calcScratch.m_healingMin, calcScratch.m_healingMax);
-	//	}
-	//	if (calcScratch.m_energyGainMin > 0f)
-	//	{
-	//		hitRes.ModifyTechPointGainCoeff(calcScratch.m_energyGainMin, calcScratch.m_energyGainMax);
-	//	}
-	//}
+	public static void SetNumericFieldsOnHitResults(ActorHitResults hitRes, NumericHitResultScratch calcScratch)
+	{
+		//if (calcScratch.m_damageMin > 0f)
+		//{
+		//	hitRes.ModifyDamageCoeff(calcScratch.m_damageMin, calcScratch.m_damageMax);
+		//}
+		//if (calcScratch.m_healingMin > 0f)
+		//{
+		//	hitRes.ModifyHealingCoeff(calcScratch.m_healingMin, calcScratch.m_healingMax);
+		//}
+		//if (calcScratch.m_energyGainMin > 0f)
+		//{
+		//	hitRes.ModifyTechPointGainCoeff(calcScratch.m_energyGainMin, calcScratch.m_energyGainMax);
+		//}
+
+		if (calcScratch.m_damage > 0)
+		{
+			hitRes.AddBaseDamage(calcScratch.m_damage);
+		}
+		if (calcScratch.m_healing > 0)
+		{
+			hitRes.AddBaseHealing(calcScratch.m_healing);
+		}
+		if(calcScratch.m_energyGain > 0)
+		{
+			hitRes.AddTechPointGain(calcScratch.m_energyGain);
+		}
+		if(calcScratch.m_energyLoss > 0)
+		{
+			hitRes.AddTechPointLoss(calcScratch.m_energyLoss);
+		}
+	}
 
 	// added in rogues
 	//public static void SetKnockbackFieldsOnHitResults(ActorData targetActor, ActorData caster, ActorHitContext actorContext, ContextVars abilityContext, ActorHitResults hitRes, List<OnHitKnockbackField> knockbackFields)
@@ -920,15 +968,32 @@ public class GenericAbility_Container : Ability
 	// added in rogues
 	public static void SetEffectFieldsOnHitResults(ActorData targetActor, ActorData caster, ActorHitContext actorContext, ContextVars abilityContext, ActorHitResults hitRes, List<OnHitEffecField> effectFields)
 	{
-		foreach (OnHitEffecField onHitEffecField in effectFields)
+		Log.Info($"SetEffectFieldsOnHitResults: effectFields={effectFields.Count}");
+		Log.Info("ActorContext -> " + actorContext.m_contextVars.ToString());
+        Log.Info("AbilityContext -> " + abilityContext.ToString());
+
+        foreach (OnHitEffecField onHitEffecField in effectFields)
 		{
 			if (TargetFilterHelper.ActorMeetsConditions(onHitEffecField.m_conditions, targetActor, caster, actorContext, abilityContext))
 			{
-				hitRes.AddStandardEffectInfo(onHitEffecField.m_effect);
+				Log.Info("Effect Meets Condition");
+				try 
+				{
+					Log.Info(onHitEffecField.ToJson());
+                } catch (JsonSerializationException e) 
+				{
+					Log.Error(e.ToString());
+				}
+
+                StandardEffectInfo effectInfo = onHitEffecField.m_effect.GetShallowCopy();
+                hitRes.AddStandardEffectInfo(effectInfo);
 				if (onHitEffecField.m_skipRemainingEffectEntriesIfMatch)
 				{
 					break;
 				}
+			} else
+			{
+				Log.Info("Effect does not meet Condition");
 			}
 		}
 	}

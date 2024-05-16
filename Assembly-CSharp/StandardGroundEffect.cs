@@ -85,6 +85,7 @@ public class StandardGroundEffect : Effect
 		}
 		else
 		{
+			Log.Info("StandardGroundEffect.GetEffectStartSeqDataList()");
 			list.Add(new ServerClientUtils.SequenceStartData(
 				m_fieldInfo.persistentSequencePrefab,
 				GetShapeCenter(),
@@ -134,15 +135,15 @@ public class StandardGroundEffect : Effect
 				m_fieldInfo.enemyHitSequencePrefab, TargetSquare, enemiesHit.ToArray(), Caster, sequence));
 		}
 		GameObject prefab = m_fieldInfo.hitPulseSequencePrefab;
-		if (prefab == null
-		    && m_fieldInfo.allyHitSequencePrefab == null
-		    && m_fieldInfo.enemyHitSequencePrefab == null)
+		if (prefab == null&& m_fieldInfo.allyHitSequencePrefab == null && m_fieldInfo.enemyHitSequencePrefab == null)
 		{
+			Log.Info("StandardGroundEffect.GetEffectHitSeqDataList() -> no prefab");
 			prefab = SequenceLookup.Get().GetSimpleHitSequencePrefab();
 		}
 		if (prefab != null && hitActors.Length != 0)
 		{
-			list.Add(new ServerClientUtils.SequenceStartData(prefab, shapeCenter, hitActors, Caster, sequence));
+            Log.Info("StandardGroundEffect.GetEffectHitSeqDataList() -> add hit pulse");
+            list.Add(new ServerClientUtils.SequenceStartData(prefab, shapeCenter, hitActors, Caster, sequence));
 		}
 		return list;
 	}
@@ -331,7 +332,7 @@ public class StandardGroundEffect : Effect
 		           || m_fieldInfo.stopMovementOutOfField && m_affectedSquares.Contains(movingFrom));
 	}
 
-	private bool IsActorHitThisTurn(ActorData actor, bool isReal)
+	public bool IsActorHitThisTurn(ActorData actor, bool isReal)
 	{
 		bool isActorHit = isReal
 			? m_actorsHitThisTurn.Contains(actor)

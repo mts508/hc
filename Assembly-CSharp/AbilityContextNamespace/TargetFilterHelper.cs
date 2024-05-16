@@ -19,14 +19,19 @@ namespace AbilityContextNamespace
 			{
 				bool isAlly = targetActor.GetTeam() == caster.GetTeam();
 				bool isSelf = targetActor == caster;
-				return teamFilter == TeamFilter.Any
+
+				bool result = teamFilter == TeamFilter.Any
                     || teamFilter == TeamFilter.EnemyIncludingTarget && !isAlly
                     || teamFilter == TeamFilter.AllyIncludingSelf && isAlly
                     || teamFilter == TeamFilter.AllyExcludingSelf && isAlly && !isSelf
 					|| teamFilter == TeamFilter.SelfOnly && isSelf;
+				Log.Info($"TargetFilterHelper.PassesTeamFilter {result}");
+                return result;
+            }
 
-			}
-			return false;
+            Log.Info($"TargetFilterHelper.PassesTeamFilter -false");
+
+            return false;
 		}
 
 		public static bool PassContextCompareFilters(List<NumericContextValueCompareCond> conditions, ActorHitContext actorHitContext, ContextVars abilityContext)
@@ -36,6 +41,9 @@ namespace AbilityContextNamespace
 			{
 				return true;
 			}
+
+            Log.Info($"PassContextCompareFilters: conditions={conditions.Count}");
+
 			for (int i = 0; i < conditions.Count; i++)
 			{
 				if (!result)
@@ -48,7 +56,7 @@ namespace AbilityContextNamespace
 				{
 					continue;
 				}
-
+				Log.Info("    Condition context key: " + condition.m_contextName);
 				int contextKey = condition.GetContextKey();
 
 				ContextVars contextVars = actorHitContext.m_contextVars;
@@ -72,7 +80,11 @@ namespace AbilityContextNamespace
 
 				float testValue = condition.m_testValue;
 				ContextCompareOp compareOp = condition.m_compareOp;
-				if (isValuePresent)
+
+                Log.Info("    testValue: " + testValue.ToString());
+				Log.Info($"    compareOp: {compareOp}");
+
+                if (isValuePresent)
 				{
 					if (!(compareOp == ContextCompareOp.Equals && testValue == actualValue
 						|| compareOp == ContextCompareOp.EqualsRoundToInt && Mathf.RoundToInt(testValue) == Mathf.RoundToInt(actualValue)
@@ -81,11 +93,13 @@ namespace AbilityContextNamespace
 						|| compareOp == ContextCompareOp.LessThan && actualValue < testValue
 						|| compareOp == ContextCompareOp.LessThanOrEqual && actualValue <= testValue))
 					{
+						Log.Info($"    comparing false:: actual={actualValue} test={testValue}");
 						result = false;
 					}
 				}
 				if (!isValuePresent && !condition.m_ignoreIfNoContext)
 				{
+					Log.Info($"    comparing false.. isValuePresent={isValuePresent} ignore={condition.m_ignoreIfNoContext}");
 					result = false;
 				}
 			}

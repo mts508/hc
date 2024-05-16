@@ -203,4 +203,139 @@ public class TargetSelect_DualMeetingLasers : GenericAbility_TargetSelectBase
 	{
 		return (m_targetSelMod == null) ? m_aoeIgnoreMinCoverDist : m_targetSelMod.m_aoeIgnoreMinCoverDistMod.GetModifiedValue(m_aoeIgnoreMinCoverDist);
 	}
+
+    public override void CalcHitTargets(List<AbilityTarget> targets, ActorData caster, List<NonActorTargetInfo> nonActorTargetInfo)
+    {
+        this.ResetContextData();
+        base.CalcHitTargets(targets, caster, nonActorTargetInfo);
+        List<List<ActorData>> list;
+        List<Vector3> list2;
+        List<Vector3> list3;
+        Vector3 aimAtPos;
+        int num;
+        float num2;
+        List<ActorData> list4;
+        this.GetHitActors(targets, caster, nonActorTargetInfo, out list, out list2, out list3, out aimAtPos, out num, out num2, out list4);
+        float value = AbilityCommon_DualMeetingLasers.CalcMeetingPosDistFromMin(caster.GetLoSCheckPos(), aimAtPos, this.GetMinMeetingDistFromCaster());
+        List<ActorData> list5 = new List<ActorData>();
+        if (num >= 0)
+        {
+            foreach (ActorData actorData in list4)
+            {
+                this.AddHitActor(actorData, list3[num], this.AoeIgnoreMinCoverDist());
+                base.SetActorContext(actorData, ContextKeys.s_InAoe.GetKey(), 1);
+                base.SetActorContext(actorData, ContextKeys.s_DistFromMin.GetKey(), value);
+                list5.Add(actorData);
+            }
+        }
+        for (int i = 0; i < list.Count; i++)
+        {
+            foreach (ActorData actorData2 in list[i])
+            {
+                if (!list5.Contains(actorData2))
+                {
+                    this.AddHitActor(actorData2, list2[i], false);
+                    base.SetActorContext(actorData2, ContextKeys.s_InAoe.GetKey(), 0);
+                    base.SetActorContext(actorData2, ContextKeys.s_DistFromMin.GetKey(), value);
+                    list5.Add(actorData2);
+                }
+            }
+        }
+    }
+
+    private void GetHitActors(List<AbilityTarget> targets, ActorData caster, List<NonActorTargetInfo> nonActorTargetInfo, out List<List<ActorData>> laserHitActors, out List<Vector3> laserStartPosList, out List<Vector3> laserEndPosList, out Vector3 aimAtPos, out int aoeEndPosIndex, out float aoeRadius, out List<ActorData> aoeHitActors)
+    {
+        Vector3 loSCheckPos = caster.GetLoSCheckPos();
+        AbilityTarget abilityTarget = targets[0];
+        int num = 2;
+        if (this.m_delegateLaserCount != null)
+        {
+            num = this.m_delegateLaserCount(targets[0], caster);
+        }
+        if (num > 1)
+        {
+            laserStartPosList = AbilityCommon_DualMeetingLasers.CalcStartingPositions(loSCheckPos, abilityTarget.FreePos, this.GetLaserStartForwardOffset(), this.GetLaserStartSideOffset());
+        }
+        else
+        {
+            laserStartPosList = new List<Vector3>
+        {
+            loSCheckPos
+        };
+        }
+        aimAtPos = AbilityCommon_DualMeetingLasers.CalcClampedMeetingPos(loSCheckPos, abilityTarget.FreePos, this.GetMinMeetingDistFromCaster(), this.GetMaxMeetingDistFromCaster());
+        float num2 = AbilityCommon_DualMeetingLasers.CalcAoeRadius(loSCheckPos, aimAtPos, this.GetAoeBaseRadius(), this.GetMinMeetingDistFromCaster(), this.GetAoeRadiusChangePerUnitFromMin(), this.GetAoeMinRadius(), this.GetAoeMaxRadius());
+        if (this.m_delegateExtraAoeRadius != null)
+        {
+            num2 += this.m_delegateExtraAoeRadius(abilityTarget, caster, this.GetAoeBaseRadius());
+        }
+        aoeRadius = num2;
+        AbilityCommon_DualMeetingLasers.CalcHitActors(aimAtPos, laserStartPosList, this.GetLaserWidth(), num2, this.GetRadiusMultIfPartialBlock(), caster, TargeterUtils.GetRelevantTeams(caster, base.IncludeAllies(), base.IncludeEnemies()), true, nonActorTargetInfo, out laserHitActors, out laserEndPosList, out aoeEndPosIndex, out aoeRadius, out aoeHitActors);
+    }
+
+    public override List<ServerClientUtils.SequenceStartData> CreateSequenceStartData(List<AbilityTarget> targets, ActorData caster, ServerAbilityUtils.AbilityRunData additionalData, Sequence.IExtraSequenceParams[] extraSequenceParams = null)
+    {
+        List<ServerClientUtils.SequenceStartData> list = new List<ServerClientUtils.SequenceStartData>();
+        List<NonActorTargetInfo> nonActorTargetInfo = new List<NonActorTargetInfo>();
+        List<List<ActorData>> list2;
+        List<Vector3> list3;
+        List<Vector3> list4;
+        Vector3 vector;
+        int num;
+        float num2;
+        List<ActorData> list5;
+        this.GetHitActors(targets, caster, nonActorTargetInfo, out list2, out list3, out list4, out vector, out num, out num2, out list5);
+        for (int i = 0; i < list3.Count; i++)
+        {
+            List<Sequence.IExtraSequenceParams> list6 = new List<Sequence.IExtraSequenceParams>();
+            if (extraSequenceParams != null)
+            {
+                list6.AddRange(extraSequenceParams);
+            }
+            list6.Add(new SplineProjectileSequence.DelayedProjectileExtraParams
+            {
+                skipImpactFx = (i != num),
+                useOverrideStartPos = true,
+                overrideStartPos = list3[i]
+            });
+            if (i == 1)
+            {
+                list6.Add(new Sequence.GenericIntParam
+                {
+                    m_fieldIdentifier = Sequence.GenericIntParam.FieldIdentifier.Index,
+                    m_value = 1
+                });
+            }
+            List<ActorData> list7 = list2[i];
+            if (i == num)
+            {
+                list6.Add(new Sequence.FxAttributeParam
+                {
+                    m_paramNameCode = Sequence.FxAttributeParam.ParamNameCode.ScaleControl,
+                    m_paramTarget = Sequence.FxAttributeParam.ParamTarget.ImpactVfx,
+                    m_paramValue = 2f * num2
+                });
+                if (this.m_aoeSequencePrefab == null)
+                {
+                    list7.AddRange(list5);
+                }
+            }
+            Vector3 targetPos = list4[i];
+            ServerClientUtils.SequenceStartData item = new ServerClientUtils.SequenceStartData(this.m_laserSequencePrefab, targetPos, list7.ToArray(), caster, additionalData.m_sequenceSource, list6.ToArray());
+            list.Add(item);
+        }
+        if (num >= 0 && this.m_aoeSequencePrefab != null)
+        {
+            List<Sequence.IExtraSequenceParams> list8 = new List<Sequence.IExtraSequenceParams>();
+            if (extraSequenceParams != null)
+            {
+                list8.AddRange(extraSequenceParams);
+            }
+            Sequence.IExtraSequenceParams[] adjustableRingSequenceParams = AbilityCommon_LayeredRings.GetAdjustableRingSequenceParams(num2);
+            list8.AddRange(adjustableRingSequenceParams);
+            ServerClientUtils.SequenceStartData item2 = new ServerClientUtils.SequenceStartData(this.m_aoeSequencePrefab, list4[num], list5.ToArray(), caster, additionalData.m_sequenceSource, list8.ToArray());
+            list.Add(item2);
+        }
+        return list;
+    }
 }

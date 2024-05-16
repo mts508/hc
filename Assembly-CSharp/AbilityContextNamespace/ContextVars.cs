@@ -1,3 +1,4 @@
+using Corale.Colore.Razer;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -98,6 +99,24 @@ namespace AbilityContextNamespace
 		public static string GetContextUsageStr(string contextName, string usage, bool actorContext = true)
 		{
 			return InEditorDescHelper.ContextVarName(contextName, actorContext) + " => " + usage + "\n";
+		}
+
+		public string ToString()
+		{
+			string result = "ContextVars: ";
+			foreach(var kv in m_intVars) 
+			{
+				result += $"i{kv.Key}={kv.Value} ";
+			}
+            foreach (var kv in m_floatVars)
+            {
+                result += $"f{kv.Key}={kv.Value} ";
+            }
+            foreach (var kv in m_vec3Vars)
+            {
+                result += $"v{kv.Key}={kv.Value} ";
+            }
+            return result;
 		}
 	}
 }

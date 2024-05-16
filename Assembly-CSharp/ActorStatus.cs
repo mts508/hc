@@ -69,10 +69,13 @@ public class ActorStatus : NetworkBehaviour
 #if SERVER
 	public void OnTurnStart()
 	{
+		Log.Info("ActorStatus.OnTurnStart");
+
 		if (NetworkServer.active)
 		{
 			for (int i = 0; i < m_statusDurations.Count; i++)
 			{
+				Log.Info($"Status {(StatusType)i} before duration={m_statusDurations[i]}");
 				if (m_statusDurations[i] > 0U)
 				{
 					SyncListUInt statusDurations = m_statusDurations;
@@ -80,7 +83,8 @@ public class ActorStatus : NetworkBehaviour
 					uint num2 = statusDurations[num] - 1U;
 					statusDurations[num] = num2;
 				}
-			}
+                Log.Info($"Status {(StatusType)i} after duration={m_statusDurations[i]}");
+            }
 		}
 	}
 #endif

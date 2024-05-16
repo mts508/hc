@@ -157,31 +157,15 @@ public class SequenceLookup : MonoBehaviour
 	{
 		if (sequencePrefab == null)
 		{
-			while (true)
-			{
-				switch (3)
-				{
-				case 0:
-					break;
-				default:
-					return -1;
-				}
-			}
+			return -1;
 		}
+		Log.Info("Prefab name: " + sequencePrefab.name);
 		int sequenceNameHash = GetSequenceNameHash(sequencePrefab.name);
 		if (m_sequenceNameHashToIndex.ContainsKey(sequenceNameHash))
 		{
-			while (true)
-			{
-				switch (2)
-				{
-				case 0:
-					break;
-				default:
-					return m_sequenceNameHashToIndex[sequenceNameHash];
-				}
-			}
+			return m_sequenceNameHashToIndex[sequenceNameHash];
 		}
+
 		Debug.LogError("Did not find name hash of sequence prefab: " + sequencePrefab.name + ", please update sequence lookup");
 		return -1;
 	}

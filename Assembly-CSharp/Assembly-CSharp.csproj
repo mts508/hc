@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <ProjectGuid>{B9F59C0E-6981-4D89-8CB8-E75E37E8DFAD}</ProjectGuid>
@@ -1117,12 +1117,15 @@
     <Compile Include="IceborgConeOrLaser.cs" />
     <Compile Include="IceborgConsumeNova.cs" />
     <Compile Include="IceborgDamageArea.cs" />
+    <Compile Include="IceborgDamageAreaEffect.cs" />
     <Compile Include="IceborgDamageToShield.cs" />
     <Compile Include="IceborgDetonateNotifySequence.cs" />
     <Compile Include="IceborgDetonateNova.cs" />
     <Compile Include="IceborgIcicle.cs" />
+    <Compile Include="IceborgNovaCoreEffect.cs" />
     <Compile Include="IceborgNovaCoreSequence.cs" />
     <Compile Include="IceborgNovaOnReact.cs" />
+    <Compile Include="IceborgNovaOnReactEffect.cs" />
     <Compile Include="IceborgPrepCone.cs" />
     <Compile Include="IceborgSelfShield.cs" />
     <Compile Include="IceborgWall.cs" />
@@ -1744,6 +1747,7 @@
     <Compile Include="Ninja_SyncComponent.cs" />
     <Compile Include="NonActorTargetInfo.cs" />
     <Compile Include="NonActorTargetInfo_BarrierBlock.cs" />
+    <Compile Include="NonActorTargetInfo_LaserCoords.cs" />
     <Compile Include="NPCBrain.cs" />
     <Compile Include="NPCBrain_Adaptive.cs" />
     <Compile Include="NPCBrain_Dash.cs" />

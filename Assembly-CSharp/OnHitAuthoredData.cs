@@ -1,5 +1,6 @@
 ﻿// ROGUES
 // SERVER
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -315,4 +316,62 @@ public class OnHitAuthoredData
 
 		return text;
 	}
+
+    public override string ToString()
+    {
+		String result = string.Empty;
+		result += "=> enemyHitIntFields\n";
+		foreach(var item in m_enemyHitIntFields)
+		{
+			try 
+			{
+				result += item.ToJson() + "\n";
+            } catch (JsonSerializationException e)
+			{
+				Log.Info(e.ToString());
+			}
+
+        }
+        result += "=> enemyHitEffectFields\n";
+        foreach (var item in m_enemyHitEffectFields)
+        {
+            try
+            {
+                result += item.ToJson() + "\n";
+            }
+            catch (JsonSerializationException e)
+            {
+                Log.Info(e.ToString());
+            }
+        }
+
+        result += "=> allyHitIntFields\n";
+        foreach (var item in m_allyHitIntFields)
+        {
+            try
+            {
+                result += item.ToJson() + "\n";
+            }
+            catch (JsonSerializationException e)
+            {
+                Log.Info(e.ToString());
+            }
+        }
+
+        result += "=> allyHitEffectFields\n";
+        foreach (var item in m_allyHitEffectFields)
+        {
+            try
+            {
+                result += item.ToJson() + "\n";
+            }
+            catch (JsonSerializationException e)
+            {
+                Log.Info(e.ToString());
+            }
+
+        }
+
+		return result;
+    }
 }
